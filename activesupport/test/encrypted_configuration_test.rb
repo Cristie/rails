@@ -10,8 +10,10 @@ class EncryptedConfigurationTest < ActiveSupport::TestCase
     @credentials_key_path = File.join(Dir.tmpdir, "master.key")
     File.write(@credentials_key_path, ActiveSupport::EncryptedConfiguration.generate_key)
 
-    @credentials = ActiveSupport::EncryptedConfiguration.new \
-      config_path: @credentials_config_path, key_path: @credentials_key_path, env_key: "RAILS_MASTER_KEY"
+    @credentials = ActiveSupport::EncryptedConfiguration.new(
+      config_path: @credentials_config_path, key_path: @credentials_key_path,
+      env_key: "RAILS_MASTER_KEY", raise_if_missing_key: true
+    )
   end
 
   teardown do
@@ -51,15 +53,15 @@ class EncryptedConfigurationTest < ActiveSupport::TestCase
     assert_equal "things", @credentials[:new]
   end
 
+  test "raise error when writing an invalid format value" do
+    assert_raise(Psych::SyntaxError) do
+      @credentials.change do |config_file|
+        config_file.write "login: *login\n  username: dummy"
+      end
+    end
+  end
+
   test "raises key error when accessing config via bang method" do
     assert_raise(KeyError) { @credentials.something! }
   end
-
-  private
-    def new_credentials_configuration
-      ActiveSupport::EncryptedConfiguration.new \
-        config_path: @credentials_config_path,
-        key_path: @credentials_key_path,
-        env_key: "RAILS_MASTER_KEY"
-    end
 end

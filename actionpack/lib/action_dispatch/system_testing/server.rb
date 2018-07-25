@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rack/handler/puma"
-
 module ActionDispatch
   module SystemTesting
     class Server # :nodoc:
@@ -22,7 +20,7 @@ module ActionDispatch
         end
 
         def set_server
-          Capybara.server = :puma, { Silent: self.class.silence_puma }
+          Capybara.server = :puma, { Silent: self.class.silence_puma } if Capybara.server == Capybara.servers[:default]
         end
 
         def set_port

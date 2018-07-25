@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
-require_relative "../../base"
 require "pathname"
+require "rails/generators/base"
+require "rails/generators/rails/encryption_key_file/encryption_key_file_generator"
 require "active_support/encrypted_file"
 
 module Rails
   module Generators
-    class MasterKeyGenerator < Base
+    class MasterKeyGenerator < Base # :nodoc:
       MASTER_KEY_PATH = Pathname.new("config/master.key")
 
       def add_master_key_file
@@ -20,27 +21,28 @@ module Rails
           log "If you lose the key, no one, including you, can access anything encrypted with it."
 
           log ""
-          create_file MASTER_KEY_PATH, key
+          add_master_key_file_silently(key)
           log ""
-
-          ignore_master_key_file
         end
       end
 
+      def add_master_key_file_silently(key = nil)
+        unless MASTER_KEY_PATH.exist?
+          key_file_generator.add_key_file_silently(MASTER_KEY_PATH, key)
+        end
+      end
+
+      def ignore_master_key_file
+        key_file_generator.ignore_key_file(MASTER_KEY_PATH, ignore: key_ignore)
+      end
+
+      def ignore_master_key_file_silently
+        key_file_generator.ignore_key_file_silently(MASTER_KEY_PATH, ignore: key_ignore)
+      end
+
       private
-        def ignore_master_key_file
-          if File.exist?(".gitignore")
-            unless File.read(".gitignore").include?(key_ignore)
-              log "Ignoring #{MASTER_KEY_PATH} so it won't end up in Git history:"
-              log ""
-              append_to_file ".gitignore", key_ignore
-              log ""
-            end
-          else
-            log "IMPORTANT: Don't commit #{MASTER_KEY_PATH}. Add this to your ignore file:"
-            log key_ignore, :on_green
-            log ""
-          end
+        def key_file_generator
+          EncryptionKeyFileGenerator.new([], options)
         end
 
         def key_ignore

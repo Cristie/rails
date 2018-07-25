@@ -24,46 +24,61 @@ module ActiveStorage
     end
 
     private
-      # Downloads the blob to a new tempfile. Yields the tempfile.
-      #
-      # Use this method to get a tempfile that you can provide to a drawing command.
-      def open # :doc:
-        Tempfile.open("input") do |file|
-          download_blob_to file
-          yield file
-        end
+      # Downloads the blob to a tempfile on disk. Yields the tempfile.
+      def download_blob_to_tempfile(&block) #:doc:
+        blob.open tempdir: tempdir, &block
       end
-
-      def download_blob_to(file)
-        file.binmode
-        blob.download { |chunk| file.write(chunk) }
-        file.rewind
-      end
-
 
       # Executes a system command, capturing its binary output in a tempfile. Yields the tempfile.
       #
-      # Use this method to shell out to system libraries (e.g. mupdf or ffmpeg) for preview image
+      # Use this method to shell out to a system library (e.g. muPDF or FFmpeg) for preview image
       # generation. The resulting tempfile can be used as the +:io+ value in an attachable Hash:
       #
       #   def preview
-      #     open do |input|
+      #     download_blob_to_tempfile do |input|
       #       draw "my-drawing-command", input.path, "--format", "png", "-" do |output|
       #         yield io: output, filename: "#{blob.filename.base}.png", content_type: "image/png"
       #       end
       #     end
       #   end
-      def draw(*argv) # :doc:
-        Tempfile.open("output") do |file|
-          capture *argv, to: file
+      #
+      # The output tempfile is opened in the directory returned by #tempdir.
+      def draw(*argv) #:doc:
+        open_tempfile do |file|
+          instrument :preview, key: blob.key do
+            capture(*argv, to: file)
+          end
+
           yield file
         end
       end
 
+      def open_tempfile
+        tempfile = Tempfile.open("ActiveStorage-", tempdir)
+
+        begin
+          yield tempfile
+        ensure
+          tempfile.close!
+        end
+      end
+
+      def instrument(operation, payload = {}, &block)
+        ActiveSupport::Notifications.instrument "#{operation}.active_storage", payload, &block
+      end
+
       def capture(*argv, to:)
         to.binmode
-        IO.popen(argv) { |out| IO.copy_stream(out, to) }
+        IO.popen(argv, err: File::NULL) { |out| IO.copy_stream(out, to) }
         to.rewind
+      end
+
+      def logger #:doc:
+        ActiveStorage.logger
+      end
+
+      def tempdir #:doc:
+        Dir.tmpdir
       end
   end
 end

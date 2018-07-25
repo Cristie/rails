@@ -13,7 +13,6 @@ gemfile(true) do
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
   gem "rails", github: "rails/rails"
-  gem "arel", github: "rails/arel"
   gem "sqlite3"
 end
 
@@ -37,7 +36,7 @@ end
 class Payment < ActiveRecord::Base
 end
 
-class ChangeAmountToAddScale < ActiveRecord::Migration[5.0]
+class ChangeAmountToAddScale < ActiveRecord::Migration[6.0]
   def change
     reversible do |dir|
       dir.up do

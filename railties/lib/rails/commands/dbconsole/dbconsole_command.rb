@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../../command/environment_argument"
+require "rails/command/environment_argument"
 
 module Rails
   class DBConsole
@@ -97,7 +97,7 @@ module Rails
         elsif configurations[environment].blank? && configurations[connection].blank?
           raise ActiveRecord::AdapterNotSpecified, "'#{environment}' database is not configured. Available configuration: #{configurations.inspect}"
         else
-          configurations[environment].presence || configurations[connection]
+          configurations[connection] || configurations[environment].presence
         end
       end
     end

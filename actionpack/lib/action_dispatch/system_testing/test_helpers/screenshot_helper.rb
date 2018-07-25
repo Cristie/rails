@@ -15,12 +15,11 @@ module ActionDispatch
         #
         # You can set the +RAILS_SYSTEM_TESTING_SCREENSHOT+ environment variable to
         # control the output. Possible values are:
-        # * [+inline+ (default)]    display the screenshot in the terminal using the
+        # * [+simple+ (default)]    Only displays the screenshot path.
+        #                           This is the default value.
+        # * [+inline+]              Display the screenshot in the terminal using the
         #                           iTerm image protocol (https://iterm2.com/documentation-images.html).
-        # * [+simple+]              only display the screenshot path.
-        #                           This is the default value if the +CI+ environment variables
-        #                           is defined.
-        # * [+artifact+]            display the screenshot in the terminal, using the terminal
+        # * [+artifact+]            Display the screenshot in the terminal, using the terminal
         #                           artifact format (https://buildkite.github.io/terminal/inline-images/).
         def take_screenshot
           save_image
@@ -44,7 +43,7 @@ module ActionDispatch
           end
 
           def image_path
-            @image_path ||= absolute_image_path.relative_path_from(Pathname.pwd).to_s
+            @image_path ||= absolute_image_path.to_s
           end
 
           def absolute_image_path
@@ -59,11 +58,8 @@ module ActionDispatch
             # Environment variables have priority
             output_type = ENV["RAILS_SYSTEM_TESTING_SCREENSHOT"] || ENV["CAPYBARA_INLINE_SCREENSHOT"]
 
-            # If running in a CI environment, default to simple
-            output_type ||= "simple" if ENV["CI"]
-
-            # Default
-            output_type ||= "inline"
+            # Default to outputting a path to the screenshot
+            output_type ||= "simple"
 
             output_type
           end
@@ -84,7 +80,7 @@ module ActionDispatch
           end
 
           def inline_base64(path)
-            Base64.encode64(path).gsub("\n", "")
+            Base64.strict_encode64(path)
           end
 
           def failed?

@@ -36,6 +36,12 @@ class CookieJarTest < ActiveSupport::TestCase
     assert_equal "bar", request.cookie_jar.fetch(:foo)
   end
 
+  def test_to_hash
+    request.cookie_jar["foo"] = "bar"
+    assert_equal({ "foo" => "bar" }, request.cookie_jar.to_hash)
+    assert_equal({ "foo" => "bar" }, request.cookie_jar.to_h)
+  end
+
   def test_fetch_type_error
     assert_raises(KeyError) do
       request.cookie_jar.fetch(:omglolwut)
@@ -59,8 +65,8 @@ class CookieJarTest < ActiveSupport::TestCase
   end
 
   def test_key_methods
-    assert !request.cookie_jar.key?(:foo)
-    assert !request.cookie_jar.has_key?("foo")
+    assert_not request.cookie_jar.key?(:foo)
+    assert_not request.cookie_jar.has_key?("foo")
 
     request.cookie_jar[:foo] = :bar
     assert request.cookie_jar.key?(:foo)
@@ -319,7 +325,7 @@ class CookiesTest < ActionController::TestCase
   def test_setting_the_same_value_to_cookie
     request.cookies[:user_name] = "david"
     get :authenticate
-    assert_predicate response.cookies, :empty?
+    assert_empty response.cookies
   end
 
   def test_setting_the_same_value_to_permanent_cookie
@@ -401,7 +407,7 @@ class CookiesTest < ActionController::TestCase
   def test_delete_unexisting_cookie
     request.cookies.clear
     get :delete_cookie
-    assert_predicate @response.cookies, :empty?
+    assert_empty @response.cookies
   end
 
   def test_deleted_cookie_predicate
@@ -915,6 +921,25 @@ class CookiesTest < ActionController::TestCase
     assert_not_equal "bar", cookies[:foo]
     assert_equal "bar", cookies.encrypted[:foo]
     assert_equal "bar", encryptor.decrypt_and_verify(@response.cookies["foo"])
+  end
+
+  def test_rotating_signed_cookies_digest
+    @request.env["action_dispatch.signed_cookie_digest"] = "SHA256"
+    @request.env["action_dispatch.cookies_rotations"].rotate :signed, digest: "SHA1"
+
+    key_generator = @request.env["action_dispatch.key_generator"]
+
+    old_secret = key_generator.generate_key(@request.env["action_dispatch.signed_cookie_salt"])
+    old_value = ActiveSupport::MessageVerifier.new(old_secret).generate(45)
+
+    @request.headers["Cookie"] = "user_id=#{old_value}"
+    get :get_signed_cookie
+
+    assert_equal 45, @controller.send(:cookies).signed[:user_id]
+
+    secret = key_generator.generate_key(@request.env["action_dispatch.signed_cookie_salt"])
+    verifier = ActiveSupport::MessageVerifier.new(secret, digest: "SHA256")
+    assert_equal 45, verifier.verify(@response.cookies["user_id"])
   end
 
   def test_legacy_hmac_aes_cbc_encrypted_marshal_cookie_is_upgraded_to_authenticated_encrypted_cookie

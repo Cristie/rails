@@ -66,7 +66,6 @@ class ResourcesTest < ActionController::TestCase
         member_methods.each_key do |action|
           assert_named_route "/messages/1/#{path_names[action] || action}", "#{action}_message_path", action: action, id: "1"
         end
-
       end
     end
   end
@@ -307,7 +306,7 @@ class ResourcesTest < ActionController::TestCase
         set.draw do
           resources :messages do
             member do
-              match :mark  , via: method
+              match :mark, via: method
               match :unmark, via: method
             end
           end

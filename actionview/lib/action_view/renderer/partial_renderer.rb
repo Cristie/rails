@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "concurrent/map"
-require_relative "partial_renderer/collection_caching"
+require "action_view/renderer/partial_renderer/collection_caching"
 
 module ActionView
   class PartialIteration
@@ -363,7 +363,7 @@ module ActionView
         @options = options
         @block   = block
 
-        @locals  = options[:locals] || {}
+        @locals  = options[:locals] ? options[:locals].symbolize_keys : {}
         @details = extract_details(options)
 
         prepend_formats(options[:formats])

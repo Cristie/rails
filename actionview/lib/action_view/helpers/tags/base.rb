@@ -97,7 +97,7 @@ module ActionView
             index = name_and_id_index(options)
             options["name"] = options.fetch("name") { tag_name(options["multiple"], index) }
 
-            unless skip_default_ids?
+            if generate_ids?
               options["id"] = options.fetch("id") { tag_id(index) }
               if namespace = options.delete("namespace")
                 options["id"] = options["id"] ? "#{namespace}_#{options['id']}" : namespace
@@ -109,11 +109,11 @@ module ActionView
             # a little duplication to construct less strings
             case
             when @object_name.empty?
-              "#{sanitized_method_name}#{"[]" if multiple}"
+              "#{sanitized_method_name}#{multiple ? "[]" : ""}"
             when index
-              "#{@object_name}[#{index}][#{sanitized_method_name}]#{"[]" if multiple}"
+              "#{@object_name}[#{index}][#{sanitized_method_name}]#{multiple ? "[]" : ""}"
             else
-              "#{@object_name}[#{sanitized_method_name}]#{"[]" if multiple}"
+              "#{@object_name}[#{sanitized_method_name}]#{multiple ? "[]" : ""}"
             end
           end
 
@@ -170,7 +170,11 @@ module ActionView
               option_tags = tag_builder.content_tag_string("option", options[:include_blank].kind_of?(String) ? options[:include_blank] : nil, value: "") + "\n" + option_tags
             end
             if value.blank? && options[:prompt]
-              option_tags = tag_builder.content_tag_string("option", prompt_text(options[:prompt]), value: "") + "\n" + option_tags
+              tag_options = { value: "" }.tap do |prompt_opts|
+                prompt_opts[:disabled] = true if options[:disabled] == ""
+                prompt_opts[:selected] = true if options[:selected] == ""
+              end
+              option_tags = tag_builder.content_tag_string("option", prompt_text(options[:prompt]), tag_options) + "\n" + option_tags
             end
             option_tags
           end
@@ -183,8 +187,8 @@ module ActionView
             end
           end
 
-          def skip_default_ids?
-            @skip_default_ids
+          def generate_ids?
+            !@skip_default_ids
           end
       end
     end

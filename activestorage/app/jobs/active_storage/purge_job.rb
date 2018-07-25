@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Provides delayed purging of ActiveStorage::Blob records via ActiveStorage::Blob#purge_later.
-class ActiveStorage::PurgeJob < ActiveJob::Base
-  # FIXME: Limit this to a custom ActiveStorage error
-  retry_on StandardError
+# Provides asynchronous purging of ActiveStorage::Blob records via ActiveStorage::Blob#purge_later.
+class ActiveStorage::PurgeJob < ActiveStorage::BaseJob
+  discard_on ActiveRecord::RecordNotFound, ActiveRecord::InvalidForeignKey
 
   def perform(blob)
     blob.purge

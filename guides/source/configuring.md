@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON https://guides.rubyonrails.org.**
 
 Configuring Rails Applications
 ==============================
@@ -62,11 +62,9 @@ These configuration methods are to be called on a `Rails::Railtie` object, such 
 
 * `config.autoload_once_paths` accepts an array of paths from which Rails will autoload constants that won't be wiped per request. Relevant if `config.cache_classes` is `false`, which is the case in development mode by default. Otherwise, all autoloading happens only once. All elements of this array must also be in `autoload_paths`. Default is an empty array.
 
-* `config.autoload_paths` accepts an array of paths from which Rails will autoload constants. Default is all directories under `app`.
+* `config.autoload_paths` accepts an array of paths from which Rails will autoload constants. Default is all directories under `app`. It is no longer recommended to adjust this. See [Autoloading and Reloading Constants](autoloading_and_reloading_constants.html#autoload-paths-and-eager-load-paths)
 
 * `config.cache_classes` controls whether or not application classes and modules should be reloaded on each request. Defaults to `false` in development mode, and `true` in test and production modes.
-
-* `config.action_view.cache_template_loading` controls whether or not templates should be reloaded on each request. Defaults to whatever is set for `config.cache_classes`.
 
 * `config.beginning_of_week` sets the default beginning of week for the
 application. Accepts a valid week day symbol (e.g. `:monday`).
@@ -88,7 +86,7 @@ application. Accepts a valid week day symbol (e.g. `:monday`).
     end
     ```
 
-* `config.eager_load` when `true`, eager loads all registered `config.eager_load_namespaces`. This includes your application, engines, Rails frameworks and any other registered namespace.
+* `config.eager_load` when `true`, eager loads all registered `config.eager_load_namespaces`. This includes your application, engines, Rails frameworks, and any other registered namespace.
 
 * `config.eager_load_namespaces` registers namespaces that are eager loaded when `config.eager_load` is `true`. All namespaces in the list must respond to the `eager_load!` method.
 
@@ -167,7 +165,7 @@ pipeline is enabled. It is set to `true` by default.
 
 * `config.assets.precompile` allows you to specify additional assets (other than `application.css` and `application.js`) which are to be precompiled when `rake assets:precompile` is run.
 
-* `config.assets.unknown_asset_fallback` allows you to modify the behavior of the asset pipeline when an asset is not in the pipeline, if you use sprockets-rails 3.2.0 or newer. Defaults to `true`.
+* `config.assets.unknown_asset_fallback` allows you to modify the behavior of the asset pipeline when an asset is not in the pipeline, if you use sprockets-rails 3.2.0 or newer. Defaults to `false`.
 
 * `config.assets.prefix` defines the prefix where assets are served from. Defaults to `/assets`.
 
@@ -202,6 +200,7 @@ The full set of methods that can be used in this block are as follows:
 * `force_plural` allows pluralized model names. Defaults to `false`.
 * `helper` defines whether or not to generate helpers. Defaults to `true`.
 * `integration_tool` defines which integration tool to use to generate integration tests. Defaults to `:test_unit`.
+* `system_tests` defines which integration tool to use to generate system tests. Defaults to `:test_unit`.
 * `javascripts` turns on the hook for JavaScript files in generators. Used in Rails for when the `scaffold` generator is run. Defaults to `true`.
 * `javascript_engine` configures the engine to be used (for eg. coffee) when generating assets. Defaults to `:js`.
 * `orm` defines which orm to use. Defaults to `false` and will use Active Record by default.
@@ -306,6 +305,10 @@ All these configuration options are delegated to the `I18n` library.
     config.i18n.fallbacks.map = { az: :tr, da: [:de, :en] }
     ```
 
+### Configuring Active Model
+
+* `config.active_model.i18n_full_message` is a boolean value which controls whether the `full_message` error format can be overridden at the attribute or model level in the locale files. This is `false` by default.
+
 ### Configuring Active Record
 
 `config.active_record` includes a variety of configuration options:
@@ -321,6 +324,10 @@ All these configuration options are delegated to the `I18n` library.
 * `config.active_record.table_name_suffix` lets you set a global string to be appended to table names. If you set this to `_northwest`, then the Customer class will look for `customers_northwest` as its table. The default is an empty string.
 
 * `config.active_record.schema_migrations_table_name` lets you set a string to be used as the name of the schema migrations table.
+
+* `config.active_record.internal_metadata_table_name` lets you set a string to be used as the name of the internal metadata table.
+
+* `config.active_record.protected_environments` lets you set an array of names of environments where destructive actions should be prohibited.
 
 * `config.active_record.pluralize_table_names` specifies whether Rails will look for singular or plural table names in the database. If set to `true` (the default), then the Customer class will use the `customers` table. If set to false, then the Customer class will use the `customer` table.
 
@@ -367,7 +374,7 @@ All these configuration options are delegated to the `I18n` library.
   Defaults to `false`.
 
 * `config.active_record.use_schema_cache_dump` enables users to get schema cache information
-  from `db/schema_cache.yml` (generated by `bin/rails db:schema:cache:dump`), instead of
+  from `db/schema_cache.yml` (generated by `rails db:schema:cache:dump`), instead of
   having to send a query to the database to get this information.
   Defaults to `true`.
 
@@ -391,15 +398,21 @@ by setting up a Rake task which runs
     ```
 
   for all models and all boolean columns, after which the flag must be set to true
-by adding the following to your application.rb file:
+by adding the following to your `application.rb` file:
 
     ```ruby
     Rails.application.config.active_record.sqlite3.represent_boolean_as_integer = true
     ```
 
-The schema dumper adds one additional configuration option:
+The schema dumper adds two additional configuration options:
 
-* `ActiveRecord::SchemaDumper.ignore_tables` accepts an array of tables that should _not_ be included in any generated schema file. This setting is ignored unless `config.active_record.schema_format == :ruby`.
+* `ActiveRecord::SchemaDumper.ignore_tables` accepts an array of tables that should _not_ be included in any generated schema file.
+
+* `ActiveRecord::SchemaDumper.fk_ignore_pattern` allows setting a different regular
+  expression that will be used to decide whether a foreign key's name should be
+  dumped to db/schema.rb or not. By default, foreign key names starting with
+  `fk_rails_` are not exported to the database schema dump.
+  Defaults to `/^fk_rails_[0-9a-f]{10}$/`.
 
 ### Configuring Action Controller
 
@@ -459,7 +472,10 @@ The schema dumper adds one additional configuration option:
     config.action_dispatch.default_headers = {
       'X-Frame-Options' => 'SAMEORIGIN',
       'X-XSS-Protection' => '1; mode=block',
-      'X-Content-Type-Options' => 'nosniff'
+      'X-Content-Type-Options' => 'nosniff',
+      'X-Download-Options' => 'noopen',
+      'X-Permitted-Cross-Domain-Policies' => 'none',
+      'Referrer-Policy' => 'strict-origin-when-cross-origin'
     }
     ```
 
@@ -495,6 +511,10 @@ Defaults to `'signed cookie'`.
 
 * `config.action_dispatch.cookies_rotations` allows rotating
   secrets, ciphers, and digests for encrypted and signed cookies.
+
+* `config.action_dispatch.use_authenticated_cookie_encryption` controls whether
+  signed and encrypted cookies use the AES-256-GCM cipher or
+  the older AES-256-CBC cipher. It defaults to `true`.
 
 * `config.action_dispatch.perform_deep_munge` configures whether `deep_munge`
   method should be performed on the parameters. See [Security Guide](security.html#unsafe-query-generation)
@@ -534,6 +554,8 @@ Defaults to `'signed cookie'`.
 
 `config.action_view` includes a small number of configuration settings:
 
+* `config.action_view.cache_template_loading` controls whether or not templates should be reloaded on each request. Defaults to whatever is set for `config.cache_classes`.
+
 * `config.action_view.field_error_proc` provides an HTML generator for displaying errors that come from Active Model. The default is
 
     ```ruby
@@ -572,11 +594,22 @@ Defaults to `'signed cookie'`.
   error should be raised for missing translations.
 
 * `config.action_view.automatically_disable_submit_tag` determines whether
-  submit_tag should automatically disable on click, this defaults to `true`.
+  `submit_tag` should automatically disable on click, this defaults to `true`.
 
 * `config.action_view.debug_missing_translation` determines whether to wrap the missing translations key in a `<span>` tag or not. This defaults to `true`.
 
 * `config.action_view.form_with_generates_remote_forms` determines whether `form_with` generates remote forms or not. This defaults to `true`.
+
+* `config.action_view.form_with_generates_ids` determines whether `form_with` generates ids on inputs. This defaults to `true`.
+
+* `config.action_view.default_enforce_utf8` determines whether forms are generated with a hidden tag that forces older versions of Internet Explorer to submit forms encoded in UTF-8. This defaults to `false`.
+
+* `config.action_view.finalize_compiled_template_methods` determines
+  whether the methods on `ActionView::CompiledTemplates` that templates
+  compile themselves to are removed when template instances are
+  destroyed by the garbage collector. This helps prevent memory leaks in
+  development mode, but for large test suites, disabling this option in
+  the test environment can improve performance. This defaults to `true`.
 
 ### Configuring Action Mailer
 
@@ -634,6 +667,12 @@ There are a number of settings available on `config.action_mailer`:
     config.action_mailer.interceptors = ["MailInterceptor"]
     ```
 
+* `config.action_mailer.preview_interceptors` registers interceptors which will be called before mail is previewed.
+
+    ```ruby
+    config.action_mailer.preview_interceptors = ["MyPreviewMailInterceptor"]
+    ```
+
 * `config.action_mailer.preview_path` specifies the location of mailer previews.
 
     ```ruby
@@ -665,6 +704,10 @@ There are a few configuration options available in Active Support:
 * `config.active_support.use_standard_json_time_format` enables or disables serializing dates to ISO 8601 format. Defaults to `true`.
 
 * `config.active_support.time_precision` sets the precision of JSON encoded time values. Defaults to `3`.
+
+* `config.active_support.use_sha1_digests` specifies whether to use SHA-1 instead of MD5 to generate non-sensitive digests, such as the ETag header. Defaults to false.
+
+* `config.active_support.use_authenticated_message_encryption` specifies whether to use AES-256-GCM authenticated encryption as the default cipher for encrypting messages instead of AES-256-CBC. This is false by default, but enabled when loading defaults for Rails 5.2.
 
 * `ActiveSupport::Logger.silencer` is set to `false` to disable the ability to silence logging in a block. The default is `true`.
 
@@ -729,6 +772,8 @@ There are a few configuration options available in Active Support:
 
 * `config.active_job.logger` accepts a logger conforming to the interface of Log4r or the default Ruby Logger class, which is then used to log information from Active Job. You can retrieve this logger by calling `logger` on either an Active Job class or an Active Job instance. Set to `nil` to disable logging.
 
+* `config.active_job.custom_serializers` allows to set custom argument serializers. Defaults to `[]`.
+
 ### Configuring Action Cable
 
 * `config.action_cable.url` accepts a string for the URL for where
@@ -739,6 +784,50 @@ main application.
   Cable, as part of the main server process. Defaults to `/cable`.
 You can set this as nil to not mount Action Cable as part of your
 normal Rails server.
+
+
+### Configuring Active Storage
+
+`config.active_storage` provides the following configuration options:
+
+* `config.active_storage.variant_processor` accepts a symbol `:mini_magick` or `:vips`, specifying whether variant transformations will be performed with MiniMagick or ruby-vips. The default is `:mini_magick`.
+
+* `config.active_storage.analyzers` accepts an array of classes indicating the analyzers available for Active Storage blobs. The default is `[ActiveStorage::Analyzer::ImageAnalyzer, ActiveStorage::Analyzer::VideoAnalyzer]`. The former can extract width and height of an image blob; the latter can extract width, height, duration, angle, and aspect ratio of a video blob.
+
+* `config.active_storage.previewers` accepts an array of classes indicating the image previewers available in Active Storage blobs. The default is `[ActiveStorage::Previewer::PDFPreviewer, ActiveStorage::Previewer::VideoPreviewer]`. The former can generate a thumbnail from the first page of a PDF blob; the latter from the relevant frame of a video blob.
+
+* `config.active_storage.paths` accepts a hash of options indicating the locations of previewer/analyzer commands. The default is `{}`, meaning the commands will be looked for in the default path. Can include any of these options:
+    * `:ffprobe` - The location of the ffprobe executable.
+    * `:mutool` - The location of the mutool executable.
+    * `:ffmpeg` - The location of the ffmpeg executable.
+
+   ```ruby
+   config.active_storage.paths[:ffprobe] = '/usr/local/bin/ffprobe'
+   ```
+
+* `config.active_storage.variable_content_types` accepts an array of strings indicating the content types that Active Storage can transform through ImageMagick. The default is `%w(image/png image/gif image/jpg image/jpeg image/vnd.adobe.photoshop image/vnd.microsoft.icon)`.
+
+* `config.active_storage.content_types_to_serve_as_binary` accepts an array of strings indicating the content types that Active Storage will always serve as an attachment, rather than inline. The default is `%w(text/html
+text/javascript image/svg+xml application/postscript application/x-shockwave-flash text/xml application/xml application/xhtml+xml)`.
+
+* `config.active_storage.queue` can be used to set the name of the Active Job queue used to perform jobs like analyzing the content of a blob or purging a blog.
+
+  ```ruby
+  config.active_storage.queue = :low_priority
+  ```
+
+* `config.active_storage.logger` can be used to set the logger used by Active Storage. Accepts a logger conforming to the interface of Log4r or the default Ruby Logger class.
+
+  ```ruby
+  config.active_storage.logger = ActiveSupport::Logger.new(STDOUT)
+  ```
+
+* `config.active_storage.service_urls_expire_in` determines the default expiry of URLs generated by:
+  * `ActiveStorage::Blob#service_url`
+  * `ActiveStorage::Blob#service_url_for_direct_upload`
+  * `ActiveStorage::Variant#service_url`
+
+  The default is 5 minutes.
 
 ### Configuring a Database
 
@@ -818,7 +907,7 @@ development:
 $ echo $DATABASE_URL
 postgresql://localhost/my_database
 
-$ bin/rails runner 'puts ActiveRecord::Base.configurations'
+$ rails runner 'puts ActiveRecord::Base.configurations'
 {"development"=>{"adapter"=>"postgresql", "host"=>"localhost", "database"=>"my_database"}}
 ```
 
@@ -835,7 +924,7 @@ development:
 $ echo $DATABASE_URL
 postgresql://localhost/my_database
 
-$ bin/rails runner 'puts ActiveRecord::Base.configurations'
+$ rails runner 'puts ActiveRecord::Base.configurations'
 {"development"=>{"adapter"=>"postgresql", "host"=>"localhost", "database"=>"my_database", "pool"=>5}}
 ```
 
@@ -851,7 +940,7 @@ development:
 $ echo $DATABASE_URL
 postgresql://localhost/my_database
 
-$ bin/rails runner 'puts ActiveRecord::Base.configurations'
+$ rails runner 'puts ActiveRecord::Base.configurations'
 {"development"=>{"adapter"=>"sqlite3", "database"=>"NOT_my_database"}}
 ```
 
@@ -973,7 +1062,7 @@ By default Rails ships with three environments: "development", "test", and "prod
 
 Imagine you have a server which mirrors the production environment but is only used for testing. Such a server is commonly called a "staging server". To define an environment called "staging" for this server, just create a file called `config/environments/staging.rb`. Please use the contents of any existing file in `config/environments` as a starting point and make the necessary changes from there.
 
-That environment is no different than the default ones, start a server with `rails server -e staging`, a console with `rails console staging`, `Rails.env.staging?` works, etc.
+That environment is no different than the default ones, start a server with `rails server -e staging`, a console with `rails console -e staging`, `Rails.env.staging?` works, etc.
 
 
 ### Deploy to a subdirectory (relative url root)
@@ -1003,11 +1092,11 @@ Deploying your application using a reverse proxy has definite advantages over tr
 
 Many modern web servers can be used as a proxy server to balance third-party elements such as caching servers or application servers.
 
-One such application server you can use is [Unicorn](http://unicorn.bogomips.org/) to run behind a reverse proxy.
+One such application server you can use is [Unicorn](https://bogomips.org/unicorn/) to run behind a reverse proxy.
 
 In this case, you would need to configure the proxy server (NGINX, Apache, etc) to accept connections from your application server (Unicorn). By default Unicorn will listen for TCP connections on port 8080, but you can change the port or configure it to use sockets instead.
 
-You can find more information in the [Unicorn readme](http://unicorn.bogomips.org/README.html) and understand the [philosophy](http://unicorn.bogomips.org/PHILOSOPHY.html) behind it.
+You can find more information in the [Unicorn readme](https://bogomips.org/unicorn/README.html) and understand the [philosophy](https://bogomips.org/unicorn/PHILOSOPHY.html) behind it.
 
 Once you've configured the application server, you must proxy requests to it by configuring your web server appropriately. For example your NGINX config may include:
 
@@ -1035,7 +1124,7 @@ server {
 }
 ```
 
-Be sure to read the [NGINX documentation](http://nginx.org/en/docs/) for the most up-to-date information.
+Be sure to read the [NGINX documentation](https://nginx.org/en/docs/) for the most up-to-date information.
 
 
 Rails Environment Settings
@@ -1057,7 +1146,7 @@ After loading the framework and any gems in your application, Rails turns to loa
 
 NOTE: You can use subfolders to organize your initializers if you like, because Rails will look into the whole file hierarchy from the initializers folder on down.
 
-TIP: If you have any ordering dependency in your initializers, you can control the load order through naming. Initializer files are loaded in alphabetical order by their path. For example, `01_critical.rb` will be loaded before `02_normal.rb`.
+TIP: While Rails supports numbering of initializer file names for load ordering purposes, a better technique is to place any code that need to load in a specific order within the same file. This reduces file name churn, makes dependencies more explicit, and can help surface new concepts within your application.
 
 Initialization events
 ---------------------
@@ -1136,7 +1225,7 @@ Below is a comprehensive list of all the initializers found in Rails in the orde
 
 * `i18n.callbacks`: In the development environment, sets up a `to_prepare` callback which will call `I18n.reload!` if any of the locales have changed since the last request. In production mode this callback will only run on the first request.
 
-* `active_support.deprecation_behavior`: Sets up deprecation reporting for environments, defaulting to `:log` for development, `:notify` for production and `:stderr` for test. If a value isn't set for `config.active_support.deprecation` then this initializer will prompt the user to configure this line in the current environment's `config/environments` file. Can be set to an array of values.
+* `active_support.deprecation_behavior`: Sets up deprecation reporting for environments, defaulting to `:log` for development, `:notify` for production, and `:stderr` for test. If a value isn't set for `config.active_support.deprecation` then this initializer will prompt the user to configure this line in the current environment's `config/environments` file. Can be set to an array of values.
 
 * `active_support.initialize_time_zone`: Sets the default time zone for the application based on the `config.time_zone` setting, which defaults to "UTC".
 
@@ -1195,23 +1284,23 @@ Below is a comprehensive list of all the initializers found in Rails in the orde
 
 * `add_routing_paths`: Loads (by default) all `config/routes.rb` files (in the application and railties, including engines) and sets up the routes for the application.
 
-* `add_locales`: Adds the files in `config/locales` (from the application, railties and engines) to `I18n.load_path`, making available the translations in these files.
+* `add_locales`: Adds the files in `config/locales` (from the application, railties, and engines) to `I18n.load_path`, making available the translations in these files.
 
-* `add_view_paths`: Adds the directory `app/views` from the application, railties and engines to the lookup path for view files for the application.
+* `add_view_paths`: Adds the directory `app/views` from the application, railties, and engines to the lookup path for view files for the application.
 
 * `load_environment_config`: Loads the `config/environments` file for the current environment.
 
-* `prepend_helpers_path`: Adds the directory `app/helpers` from the application, railties and engines to the lookup path for helpers for the application.
+* `prepend_helpers_path`: Adds the directory `app/helpers` from the application, railties, and engines to the lookup path for helpers for the application.
 
-* `load_config_initializers`: Loads all Ruby files from `config/initializers` in the application, railties and engines. The files in this directory can be used to hold configuration settings that should be made after all of the frameworks are loaded.
+* `load_config_initializers`: Loads all Ruby files from `config/initializers` in the application, railties, and engines. The files in this directory can be used to hold configuration settings that should be made after all of the frameworks are loaded.
 
 * `engines_blank_point`: Provides a point-in-initialization to hook into if you wish to do anything before engines are loaded. After this point, all railtie and engine initializers are run.
 
-* `add_generator_templates`: Finds templates for generators at `lib/templates` for the application, railties and engines and adds these to the `config.generators.templates` setting, which will make the templates available for all generators to reference.
+* `add_generator_templates`: Finds templates for generators at `lib/templates` for the application, railties, and engines and adds these to the `config.generators.templates` setting, which will make the templates available for all generators to reference.
 
 * `ensure_autoload_once_paths_as_subset`: Ensures that the `config.autoload_once_paths` only contains paths from `config.autoload_paths`. If it contains extra paths, then an exception will be raised.
 
-* `add_to_prepare_blocks`: The block for every `config.to_prepare` call in the application, a railtie or engine is added to the `to_prepare` callbacks for Action Dispatch which will be run per request in development, or before the first request in production.
+* `add_to_prepare_blocks`: The block for every `config.to_prepare` call in the application, a railtie, or engine is added to the `to_prepare` callbacks for Action Dispatch which will be run per request in development, or before the first request in production.
 
 * `add_builtin_route`: If the application is running under the development environment then this will append the route for `rails/info/properties` to the application routes. This route provides the detailed information such as Rails and Ruby version for `public/index.html` in a default Rails application.
 
@@ -1219,7 +1308,7 @@ Below is a comprehensive list of all the initializers found in Rails in the orde
 
 * `eager_load!`: If `config.eager_load` is `true`, runs the `config.before_eager_load` hooks and then calls `eager_load!` which will load all `config.eager_load_namespaces`.
 
-* `finisher_hook`: Provides a hook for after the initialization of process of the application is complete, as well as running all the `config.after_initialize` blocks for the application, railties and engines.
+* `finisher_hook`: Provides a hook for after the initialization of process of the application is complete, as well as running all the `config.after_initialize` blocks for the application, railties, and engines.
 
 * `set_routes_reloader_hook`: Configures Action Dispatch to reload the routes file using `ActiveSupport::Callbacks.to_run`.
 
@@ -1311,13 +1400,13 @@ Search Engines Indexing
 -----------------------
 
 Sometimes, you may want to prevent some pages of your application to be visible
-on search sites like Google, Bing, Yahoo or Duck Duck Go. The robots that index
+on search sites like Google, Bing, Yahoo, or Duck Duck Go. The robots that index
 these sites will first analyze the `http://your-site.com/robots.txt` file to
 know which pages it is allowed to index.
 
 Rails creates this file for you inside the `/public` folder. By default, it allows
 search engines to index all pages of your application. If you want to block
-indexing on all pages of you application, use this:
+indexing on all pages of your application, use this:
 
 ```
 User-agent: *

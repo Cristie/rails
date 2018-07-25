@@ -94,7 +94,7 @@ module ApplicationTests
 
       with_rails_env "development" do
         app "development"
-        assert Rails.application.config.log_tags.blank?
+        assert_predicate Rails.application.config.log_tags, :blank?
       end
     end
 
@@ -361,7 +361,7 @@ module ApplicationTests
         end
       RUBY
 
-      assert !$prepared
+      assert_not $prepared
 
       app "development"
 
@@ -576,6 +576,7 @@ module ApplicationTests
 
       app "development"
       assert_equal "3b7cd727ee24e8444053437c36cc66c3", app.secrets.secret_key_base
+      assert_equal "3b7cd727ee24e8444053437c36cc66c3", app.secret_key_base
     end
 
     test "secret_key_base is copied from config to secrets when not set" do
@@ -707,6 +708,14 @@ module ApplicationTests
       assert_match(/Missing.*RAILS_MASTER_KEY/, error)
     end
 
+    test "credentials does not raise error when require_master_key is false and master key does not exist" do
+      remove_file "config/master.key"
+      add_to_config "config.require_master_key = false"
+      app "development"
+
+      assert_not app.credentials.secret_key_base
+    end
+
     test "protect from forgery is the default in a new app" do
       make_basic_app
 
@@ -755,6 +764,68 @@ module ApplicationTests
 
       get "/posts"
       assert_match(/label/, last_response.body)
+    end
+
+    test "form_with can be configured with form_with_generates_ids" do
+      app_file "config/initializers/form_builder.rb", <<-RUBY
+      Rails.configuration.action_view.form_with_generates_ids = false
+      RUBY
+
+      app_file "app/models/post.rb", <<-RUBY
+      class Post
+        include ActiveModel::Model
+        attr_accessor :name
+      end
+      RUBY
+
+      app_file "app/controllers/posts_controller.rb", <<-RUBY
+      class PostsController < ApplicationController
+        def index
+          render inline: "<%= begin; form_with(model: Post.new) {|f| f.text_field(:name)}; rescue => e; e.to_s; end %>"
+        end
+      end
+      RUBY
+
+      add_to_config <<-RUBY
+        routes.prepend do
+          resources :posts
+        end
+      RUBY
+
+      app "development"
+
+      get "/posts"
+
+      assert_no_match(/id=('|")post_name('|")/, last_response.body)
+    end
+
+    test "form_with outputs ids by default" do
+      app_file "app/models/post.rb", <<-RUBY
+      class Post
+        include ActiveModel::Model
+        attr_accessor :name
+      end
+      RUBY
+
+      app_file "app/controllers/posts_controller.rb", <<-RUBY
+      class PostsController < ApplicationController
+        def index
+          render inline: "<%= begin; form_with(model: Post.new) {|f| f.text_field(:name)}; rescue => e; e.to_s; end %>"
+        end
+      end
+      RUBY
+
+      add_to_config <<-RUBY
+        routes.prepend do
+          resources :posts
+        end
+      RUBY
+
+      app "development"
+
+      get "/posts"
+
+      assert_match(/id=('|")post_name('|")/, last_response.body)
     end
 
     test "form_with can be configured with form_with_generates_remote_forms" do
@@ -1255,7 +1326,7 @@ module ApplicationTests
       assert_equal 200, last_response.status
     end
 
-    test "config.action_controller.action_on_unpermitted_parameters is :log by default on development" do
+    test "config.action_controller.action_on_unpermitted_parameters is :log by default in development" do
       app "development"
 
       force_lazy_load_hooks { ActionController::Base }
@@ -1264,7 +1335,7 @@ module ApplicationTests
       assert_equal :log, ActionController::Parameters.action_on_unpermitted_parameters
     end
 
-    test "config.action_controller.action_on_unpermitted_parameters is :log by default on test" do
+    test "config.action_controller.action_on_unpermitted_parameters is :log by default in test" do
       app "test"
 
       force_lazy_load_hooks { ActionController::Base }
@@ -1273,7 +1344,7 @@ module ApplicationTests
       assert_equal :log, ActionController::Parameters.action_on_unpermitted_parameters
     end
 
-    test "config.action_controller.action_on_unpermitted_parameters is false by default on production" do
+    test "config.action_controller.action_on_unpermitted_parameters is false by default in production" do
       app "production"
 
       force_lazy_load_hooks { ActionController::Base }
@@ -1346,14 +1417,14 @@ module ApplicationTests
       assert_equal "XML", last_response.body
     end
 
-    test "Rails.application#env_config exists and include some existing parameters" do
+    test "Rails.application#env_config exists and includes some existing parameters" do
       make_basic_app
 
-      assert_equal      app.env_config["action_dispatch.parameter_filter"],  app.config.filter_parameters
-      assert_equal      app.env_config["action_dispatch.show_exceptions"],   app.config.action_dispatch.show_exceptions
-      assert_equal      app.env_config["action_dispatch.logger"],            Rails.logger
-      assert_equal      app.env_config["action_dispatch.backtrace_cleaner"], Rails.backtrace_cleaner
-      assert_equal      app.env_config["action_dispatch.key_generator"],     Rails.application.key_generator
+      assert_equal app.env_config["action_dispatch.parameter_filter"],  app.config.filter_parameters
+      assert_equal app.env_config["action_dispatch.show_exceptions"],   app.config.action_dispatch.show_exceptions
+      assert_equal app.env_config["action_dispatch.logger"],            Rails.logger
+      assert_equal app.env_config["action_dispatch.backtrace_cleaner"], Rails.backtrace_cleaner
+      assert_equal app.env_config["action_dispatch.key_generator"],     Rails.application.key_generator
     end
 
     test "config.colorize_logging default is true" do
@@ -1408,7 +1479,7 @@ module ApplicationTests
     test "respond_to? accepts include_private" do
       make_basic_app
 
-      assert_not Rails.configuration.respond_to?(:method_missing)
+      assert_not_respond_to Rails.configuration, :method_missing
       assert Rails.configuration.respond_to?(:method_missing, true)
     end
 
@@ -1420,10 +1491,16 @@ module ApplicationTests
       assert_not ActiveRecord::Base.dump_schema_after_migration
     end
 
-    test "config.active_record.dump_schema_after_migration is true by default on development" do
+    test "config.active_record.dump_schema_after_migration is true by default in development" do
       app "development"
 
       assert ActiveRecord::Base.dump_schema_after_migration
+    end
+
+    test "config.active_record.verbose_query_logs is false by default in development" do
+      app "development"
+
+      assert_not ActiveRecord::Base.verbose_query_logs
     end
 
     test "config.annotations wrapping SourceAnnotationExtractor::Annotation class" do
@@ -1433,7 +1510,7 @@ module ApplicationTests
         end
       end
 
-      assert_not_nil SourceAnnotationExtractor::Annotation.extensions[/\.(coffee)$/]
+      assert_not_nil Rails::SourceAnnotationExtractor::Annotation.extensions[/\.(coffee)$/]
     end
 
     test "rake_tasks block works at instance level" do
@@ -1663,9 +1740,7 @@ module ApplicationTests
 
     test "default SQLite3Adapter.represent_boolean_as_integer for 5.1 is false" do
       remove_from_config '.*config\.load_defaults.*\n'
-      add_to_top_of_config <<-RUBY
-        config.load_defaults 5.1
-      RUBY
+
       app_file "app/models/post.rb", <<-RUBY
         class Post < ActiveRecord::Base
         end
@@ -1692,7 +1767,7 @@ module ApplicationTests
     test "represent_boolean_as_integer should be able to set via config.active_record.sqlite3.represent_boolean_as_integer" do
       remove_from_config '.*config\.load_defaults.*\n'
 
-      app_file "config/initializers/new_framework_defaults_5_2.rb", <<-RUBY
+      app_file "config/initializers/new_framework_defaults_6_0.rb", <<-RUBY
         Rails.application.config.active_record.sqlite3.represent_boolean_as_integer = true
       RUBY
 
@@ -1757,7 +1832,7 @@ module ApplicationTests
 
     test "api_only is false by default" do
       app "development"
-      refute Rails.application.config.api_only
+      assert_not Rails.application.config.api_only
     end
 
     test "api_only generator config is set when api_only is set" do
@@ -1812,6 +1887,113 @@ module ApplicationTests
 
       assert_equal 301, last_response.status
       assert_equal "https://example.org/", last_response.location
+    end
+
+    test "ActiveSupport::MessageEncryptor.use_authenticated_message_encryption is true by default for new apps" do
+      app "development"
+
+      assert_equal true, ActiveSupport::MessageEncryptor.use_authenticated_message_encryption
+    end
+
+    test "ActiveSupport::MessageEncryptor.use_authenticated_message_encryption is false by default for upgraded apps" do
+      remove_from_config '.*config\.load_defaults.*\n'
+
+      app "development"
+
+      assert_equal false, ActiveSupport::MessageEncryptor.use_authenticated_message_encryption
+    end
+
+    test "ActiveSupport::MessageEncryptor.use_authenticated_message_encryption can be configured via config.active_support.use_authenticated_message_encryption" do
+      remove_from_config '.*config\.load_defaults.*\n'
+
+      app_file "config/initializers/new_framework_defaults_6_0.rb", <<-RUBY
+        Rails.application.config.active_support.use_authenticated_message_encryption = true
+      RUBY
+
+      app "development"
+
+      assert_equal true, ActiveSupport::MessageEncryptor.use_authenticated_message_encryption
+    end
+
+    test "ActiveSupport::Digest.hash_digest_class is Digest::SHA1 by default for new apps" do
+      app "development"
+
+      assert_equal Digest::SHA1, ActiveSupport::Digest.hash_digest_class
+    end
+
+    test "ActiveSupport::Digest.hash_digest_class is Digest::MD5 by default for upgraded apps" do
+      remove_from_config '.*config\.load_defaults.*\n'
+
+      app "development"
+
+      assert_equal Digest::MD5, ActiveSupport::Digest.hash_digest_class
+    end
+
+    test "ActiveSupport::Digest.hash_digest_class can be configured via config.active_support.use_sha1_digests" do
+      remove_from_config '.*config\.load_defaults.*\n'
+
+      app_file "config/initializers/new_framework_defaults_6_0.rb", <<-RUBY
+        Rails.application.config.active_support.use_sha1_digests = true
+      RUBY
+
+      app "development"
+
+      assert_equal Digest::SHA1, ActiveSupport::Digest.hash_digest_class
+    end
+
+    test "custom serializers should be able to set via config.active_job.custom_serializers in an initializer" do
+      class ::DummySerializer < ActiveJob::Serializers::ObjectSerializer; end
+
+      app_file "config/initializers/custom_serializers.rb", <<-RUBY
+      Rails.application.config.active_job.custom_serializers << DummySerializer
+      RUBY
+
+      app "development"
+
+      assert_includes ActiveJob::Serializers.serializers, DummySerializer
+    end
+
+    test "ActionView::Helpers::FormTagHelper.default_enforce_utf8 is false by default" do
+      app "development"
+      assert_equal false, ActionView::Helpers::FormTagHelper.default_enforce_utf8
+    end
+
+    test "ActionView::Helpers::FormTagHelper.default_enforce_utf8 is true in an upgraded app" do
+      remove_from_config '.*config\.load_defaults.*\n'
+      add_to_config 'config.load_defaults "5.2"'
+
+      app "development"
+
+      assert_equal true, ActionView::Helpers::FormTagHelper.default_enforce_utf8
+    end
+
+    test "ActionView::Helpers::FormTagHelper.default_enforce_utf8 can be configured via config.action_view.default_enforce_utf8" do
+      remove_from_config '.*config\.load_defaults.*\n'
+
+      app_file "config/initializers/new_framework_defaults_6_0.rb", <<-RUBY
+        Rails.application.config.action_view.default_enforce_utf8 = true
+      RUBY
+
+      app "development"
+
+      assert_equal true, ActionView::Helpers::FormTagHelper.default_enforce_utf8
+    end
+
+    test "ActionView::Template.finalize_compiled_template_methods is true by default" do
+      app "test"
+      assert_equal true, ActionView::Template.finalize_compiled_template_methods
+    end
+
+    test "ActionView::Template.finalize_compiled_template_methods can be configured via config.action_view.finalize_compiled_template_methods" do
+      app_file "config/environments/test.rb", <<-RUBY
+      Rails.application.configure do
+        config.action_view.finalize_compiled_template_methods = false
+      end
+      RUBY
+
+      app "test"
+
+      assert_equal false, ActionView::Template.finalize_compiled_template_methods
     end
 
     private

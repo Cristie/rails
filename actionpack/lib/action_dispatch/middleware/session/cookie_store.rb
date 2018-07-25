@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "active_support/core_ext/hash/keys"
-require_relative "abstract_store"
+require "action_dispatch/middleware/session/abstract_store"
 require "rack/session/cookie"
 
 module ActionDispatch
@@ -25,7 +25,7 @@ module ActionDispatch
     # goes a step further than signed cookies in that encrypted cookies cannot
     # be altered or read by users. This is the default starting in Rails 4.
     #
-    # Configure your session store in <tt>config/initializers/session_store.rb</tt>:
+    # Configure your session store in an initializer:
     #
     #   Rails.application.config.session_store :cookie_store, key: '_your_app_session'
     #

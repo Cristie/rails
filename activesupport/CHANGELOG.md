@@ -1,240 +1,145 @@
-*   Deprecate `secrets.secret_token`.
+*   RedisCacheStore: support key expiry in increment/decrement.
 
-    The architecture for secrets had a big upgrade between Rails 3 and Rails 4,
-    when the default changed from using `secret_token` to `secret_key_base`.
+    Pass `:expires_in` to `#increment` and `#decrement` to set a Redis EXPIRE on the key.
 
-    `secret_token` has been soft deprecated in documentation for four years
-    but is still in place to support apps created before Rails 4.
-    Deprecation warnings have been added to help developers upgrade their
-    applications to `secret_key_base`.
+    If the key is already set to expire, RedisCacheStore won't extend its expiry.
 
-    *claudiob*, *Kasper Timm Hansen*
+        Rails.cache.increment("some_key", 1, expires_in: 2.minutes)
 
-*   Return an instance of `HashWithIndifferentAccess` from `HashWithIndifferentAccess#transform_keys`.
+    *Jason Lee*
 
-    *Yuji Yaginuma*
+*   Allow Range#=== and Range#cover? on Range
 
-*   Add key rotation support to `MessageEncryptor` and `MessageVerifier`
+    `Range#cover?` can now accept a range argument like `Range#include?` and
+    `Range#===`. `Range#===` works correctly on Ruby 2.6. `Range#include?` is moved
+    into a new file, with these two methods.
 
-    This change introduces a `rotate` method to both the `MessageEncryptor` and
-    `MessageVerifier` classes. This method accepts the same arguments and
-    options as the given classes' constructor. The `encrypt_and_verify` method
-    for `MessageEncryptor` and the `verified` method for `MessageVerifier` also
-    accept an optional keyword argument `:on_rotation` block which is called
-    when a rotated instance is used to decrypt or verify the message.
+    *Requiring active_support/core_ext/range/include_range is now deprecated.*
+    *Use `require "active_support/core_ext/range/compare_range"` instead.*
 
-    *Michael J Coyne*
+    *utilum*
 
-*   Deprecate `Module#reachable?` method.
+*   Add `index_with` to Enumerable.
 
-    *bogdanvlviv*
+    Allows creating a hash from an enumerable with the value from a passed block
+    or a default argument.
 
-*   Add `config/credentials.yml.enc` to store production app secrets.
+        %i( title body ).index_with { |attr| post.public_send(attr) }
+        # => { title: "hey", body: "what's up?" }
 
-    Allows saving any authentication credentials for third party services
-    directly in repo encrypted with `config/master.key` or `ENV["RAILS_MASTER_KEY"]`.
+        %i( title body ).index_with(nil)
+        # => { title: nil, body: nil }
 
-    This will eventually replace `Rails.application.secrets` and the encrypted
-    secrets introduced in Rails 5.1.
+    Closely linked with `index_by`, which creates a hash where the keys are extracted from a block.
 
-    *DHH*, *Kasper Timm Hansen*
+    *Kasper Timm Hansen*
 
-*   Add `ActiveSupport::EncryptedFile` and `ActiveSupport::EncryptedConfiguration`.
+*   Fix bug where `ActiveSupport::Timezone.all` would fail when tzinfo data for
+    any timezone defined in `ActiveSupport::TimeZone::MAPPING` is missing.
 
-    Allows for stashing encrypted files or configuration directly in repo by
-    encrypting it with a key.
+    *Dominik Sander*
 
-    Backs the new credentials setup above, but can also be used independently.
+*   Redis cache store: `delete_matched` no longer blocks the Redis server.
+    (Switches from evaled Lua to a batched SCAN + DEL loop.)
 
-    *DHH*, *Kasper Timm Hansen*
+    *Gleb Mazovetskiy*
 
-*   `Module#delegate_missing_to` now raises `DelegationError` if target is nil,
-    similar to `Module#delegate`.
+*   Fix bug where `ActiveSupport::Cache` will massively inflate the storage
+    size when compression is enabled (which is true by default). This patch
+    does not attempt to repair existing data: please manually flush the cache
+    to clear out the problematic entries.
 
-    *Anton Khamets*
+    *Godfrey Chan*
 
-*   Update `String#camelize` to provide feedback when wrong option is passed
+*   Fix bug where `URI.unscape` would fail with mixed Unicode/escaped character input:
 
-    `String#camelize` was returning nil without any feedback when an
-    invalid option was passed as a parameter.
+        URI.unescape("\xe3\x83\x90")  # => "バ"
+        URI.unescape("%E3%83%90")  # => "バ"
+        URI.unescape("\xe3\x83\x90%E3%83%90")  # => Encoding::CompatibilityError
 
-    Previously:
+    *Ashe Connor*, *Aaron Patterson*
 
-        'one_two'.camelize(true)
-        => nil
+*   Add `before?` and `after?` methods to `Date`, `DateTime`,
+    `Time`, and `TimeWithZone`.
 
-    Now:
+    *Nick Holden*
 
-        'one_two'.camelize(true)
-        => ArgumentError: Invalid option, use either :upper or :lower.
+*   `ActiveSupport::Inflector#ordinal` and `ActiveSupport::Inflector#ordinalize` now support
+    translations through I18n.
 
-    *Ricardo Díaz*
+        # locale/fr.rb
 
-*   Fix modulo operations involving durations
+        {
+          fr: {
+            number: {
+              nth: {
+                ordinals: lambda do |_key, number:, **_options|
+                  if number.to_i.abs == 1
+                    'er'
+                  else
+                    'e'
+                  end
+                end,
 
-    Rails 5.1 introduced `ActiveSupport::Duration::Scalar` as a wrapper
-    around numeric values as a way of ensuring a duration was the outcome of
-    an expression. However, the implementation was missing support for modulo
-    operations. This support has now been added and should result in a duration
-    being returned from expressions involving modulo operations.
+                ordinalized: lambda do |_key, number:, **_options|
+                  "#{number}#{ActiveSupport::Inflector.ordinal(number)}"
+                end
+              }
+            }
+          }
+        }
 
-    Prior to Rails 5.1:
 
-        5.minutes % 2.minutes
-        => 60
+    *Christian Blais*
 
-    Now:
+*   Add `:private` option to ActiveSupport's `Module#delegate`
+    in order to delegate methods as private:
 
-        5.minutes % 2.minutes
-        => 1 minute
+        class User < ActiveRecord::Base
+          has_one :profile
+          delegate :date_of_birth, to: :profile, private: true
 
-    Fixes #29603 and #29743.
+          def age
+            Date.today.year - date_of_birth.year
+          end
+        end
 
-    *Sayan Chakraborty*, *Andrew White*
+        # User.new.age  # => 29
+        # User.new.date_of_birth
+        # => NoMethodError: private method `date_of_birth' called for #<User:0x00000008221340>
 
-*   Fix division where a duration is the denominator
+    *Tomas Valent*
 
-    PR #29163 introduced a change in behavior when a duration was the denominator
-    in a calculation - this was incorrect as dividing by a duration should always
-    return a `Numeric`. The behavior of previous versions of Rails has been restored.
-
-    Fixes #29592.
-
-    *Andrew White*
-
-*   Add purpose and expiry support to `ActiveSupport::MessageVerifier` &
-   `ActiveSupport::MessageEncryptor`.
-
-    For instance, to ensure a message is only usable for one intended purpose:
-
-        token = @verifier.generate("x", purpose: :shipping)
-
-        @verifier.verified(token, purpose: :shipping) # => "x"
-        @verifier.verified(token)                     # => nil
-
-    Or make it expire after a set time:
-
-        @verifier.generate("x", expires_in: 1.month)
-        @verifier.generate("y", expires_at: Time.now.end_of_year)
-
-    Showcased with `ActiveSupport::MessageVerifier`, but works the same for
-    `ActiveSupport::MessageEncryptor`'s `encrypt_and_sign` and `decrypt_and_verify`.
-
-    Pull requests: #29599, #29854
-
-    *Assain Jaleel*
-
-*   Make the order of `Hash#reverse_merge!` consistent with `HashWithIndifferentAccess`.
-
-    *Erol Fornoles*
-
-*   Add `freeze_time` helper which freezes time to `Time.now` in tests.
-
-    *Prathamesh Sonpatki*
-
-*   Default `ActiveSupport::MessageEncryptor` to use AES 256 GCM encryption.
-
-    On for new Rails 5.2 apps. Upgrading apps can find the config as a new
-    framework default.
-
-    *Assain Jaleel*
-
-*   Cache: `write_multi`
-
-        Rails.cache.write_multi foo: 'bar', baz: 'qux'
-
-    Plus faster fetch_multi with stores that implement `write_multi_entries`.
-    Keys that aren't found may be written to the cache store in one shot
-    instead of separate writes.
-
-    The default implementation simply calls `write_entry` for each entry.
-    Stores may override if they're capable of one-shot bulk writes, like
-    Redis `MSET`.
+*   `String#truncate_bytes` to truncate a string to a maximum bytesize without
+    breaking multibyte characters or grapheme clusters like 👩‍👩‍👦‍👦.
 
     *Jeremy Daer*
 
-*   Add default option to module and class attribute accessors.
+*   `String#strip_heredoc` preserves frozenness.
 
-        mattr_accessor :settings, default: {}
+        "foo".freeze.strip_heredoc.frozen?  # => true
 
-    Works for `mattr_reader`, `mattr_writer`, `cattr_accessor`, `cattr_reader`,
-    and `cattr_writer` as well.
+    Fixes that frozen string literals would inadvertently become unfrozen:
 
-    *Genadi Samokovarov*
+        # frozen_string_literal: true
 
-*   Add `Date#prev_occurring` and `Date#next_occurring` to return specified next/previous occurring day of week.
+        foo = <<-MSG.strip_heredoc
+          la la la
+        MSG
 
-    *Shota Iguchi*
+        foo.frozen?  # => false !??
 
-*   Add default option to `class_attribute`.
+    *Jeremy Daer*
 
-    Before:
+*   Rails 6 requires Ruby 2.4.1 or newer.
 
-        class_attribute :settings
-        self.settings = {}
+    *Jeremy Daer*
 
-    Now:
+*   Adds parallel testing to Rails.
 
-        class_attribute :settings, default: {}
+    Parallelize your test suite with forked processes or threads.
 
-    *DHH*
-
-*   `#singularize` and `#pluralize` now respect uncountables for the specified locale.
-
-    *Eilis Hamilton*
-
-*   Add `ActiveSupport::CurrentAttributes` to provide a thread-isolated attributes singleton.
-    Primary use case is keeping all the per-request attributes easily available to the whole system.
-
-    *DHH*
-
-*   Fix implicit coercion calculations with scalars and durations
-
-    Previously, calculations where the scalar is first would be converted to a duration
-    of seconds, but this causes issues with dates being converted to times, e.g:
-
-        Time.zone = "Beijing"           # => Asia/Shanghai
-        date = Date.civil(2017, 5, 20)  # => Mon, 20 May 2017
-        2 * 1.day                       # => 172800 seconds
-        date + 2 * 1.day                # => Mon, 22 May 2017 00:00:00 CST +08:00
-
-    Now, the `ActiveSupport::Duration::Scalar` calculation methods will try to maintain
-    the part structure of the duration where possible, e.g:
-
-        Time.zone = "Beijing"           # => Asia/Shanghai
-        date = Date.civil(2017, 5, 20)  # => Mon, 20 May 2017
-        2 * 1.day                       # => 2 days
-        date + 2 * 1.day                # => Mon, 22 May 2017
-
-    Fixes #29160, #28970.
-
-    *Andrew White*
-
-*   Add support for versioned cache entries. This enables the cache stores to recycle cache keys, greatly saving
-    on storage in cases with frequent churn. Works together with the separation of `#cache_key` and `#cache_version`
-    in Active Record and its use in Action Pack's fragment caching.
-
-    *DHH*
-
-*   Pass gem name and deprecation horizon to deprecation notifications.
-
-    *Willem van Bergen*
-
-*   Add support for `:offset` and `:zone` to `ActiveSupport::TimeWithZone#change`
-
-    *Andrew White*
-
-*   Add support for `:offset` to `Time#change`
-
-    Fixes #28723.
-
-    *Andrew White*
-
-*   Add `fetch_values` for `HashWithIndifferentAccess`
-
-    The method was originally added to `Hash` in Ruby 2.3.0.
-
-    *Josh Pencheon*
+    *Eileen M. Uchitelle*, *Aaron Patterson*
 
 
-Please check [5-1-stable](https://github.com/rails/rails/blob/5-1-stable/activesupport/CHANGELOG.md) for previous changes.
+Please check [5-2-stable](https://github.com/rails/rails/blob/5-2-stable/activesupport/CHANGELOG.md) for previous changes.

@@ -4,7 +4,6 @@ module ActiveRecord
   module Associations
     class Preloader
       class Association #:nodoc:
-        attr_reader :owners, :reflection, :preload_scope, :model, :klass
         attr_reader :preloaded_records
 
         def initialize(klass, owners, reflection, preload_scope)
@@ -17,12 +16,20 @@ module ActiveRecord
         end
 
         def run(preloader)
-          associated_records_by_owner(preloader).each do |owner, records|
-            associate_records_to_owner(owner, records)
+          records = load_records do |record|
+            owner = owners_by_key[convert_key(record[association_key_name])]
+            association = owner.association(reflection.name)
+            association.set_inverse_instance(record)
+          end
+
+          owners.each do |owner|
+            associate_records_to_owner(owner, records[convert_key(owner[owner_key_name])] || [])
           end
         end
 
         private
+          attr_reader :owners, :reflection, :preload_scope, :model, :klass
+
           # The name of the key on the associated records
           def association_key_name
             reflection.join_primary_key(klass)
@@ -33,20 +40,14 @@ module ActiveRecord
             reflection.join_foreign_key
           end
 
-          def associated_records_by_owner(preloader)
-            records = load_records do |record|
-              owner = owners_by_key[convert_key(record[association_key_name])]
-              association = owner.association(reflection.name)
-              association.set_inverse_instance(record)
-            end
-
-            owners.each_with_object({}) do |owner, result|
-              result[owner] = records[convert_key(owner[owner_key_name])] || []
-            end
-          end
-
           def associate_records_to_owner(owner, records)
-            raise NotImplementedError
+            association = owner.association(reflection.name)
+            association.loaded!
+            if reflection.collection?
+              association.target.concat(records)
+            else
+              association.target = records.first unless records.empty?
+            end
           end
 
           def owner_keys
@@ -80,11 +81,11 @@ module ActiveRecord
           end
 
           def association_key_type
-            @klass.type_for_attribute(association_key_name.to_s).type
+            @klass.type_for_attribute(association_key_name).type
           end
 
           def owner_key_type
-            @model.type_for_attribute(owner_key_name.to_s).type
+            @model.type_for_attribute(owner_key_name).type
           end
 
           def load_records(&block)
@@ -116,7 +117,7 @@ module ActiveRecord
             scope = klass.scope_for_association
 
             if reflection.type
-              scope.where!(reflection.type => model.base_class.sti_name)
+              scope.where!(reflection.type => model.polymorphic_name)
             end
 
             scope.merge!(reflection_scope) if reflection.scope

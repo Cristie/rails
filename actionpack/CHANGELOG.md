@@ -1,112 +1,64 @@
-*   Simplify cookies middleware with key rotation support
+*   `ActionDispatch::Http::UploadedFile` now delegates `to_path` to its tempfile.
 
-    Use the `rotate` method for both `MessageEncryptor` and
-    `MessageVerifier` to add key rotation support for encrypted and
-    signed cookies. This also helps simplify support for legacy cookie
-    security.
+    This allows uploaded file objects to be passed directly to `File.read`
+    without raising a `TypeError`:
 
-    *Michael J Coyne*
+        uploaded_file = ActionDispatch::Http::UploadedFile.new(tempfile: tmp_file)
+        File.read(uploaded_file)
 
-*   Use Capybara registered `:puma` server config.
+    *Aaron Kromer*
 
-    The Capybara registered `:puma` server ensures the puma server is run in process so
-    connection sharing and open request detection work correctly by default.
+*   Pass along arguments to underlying `get` method in `follow_redirect!`
 
-    *Thomas Walpole*
+    Now all arguments passed to `follow_redirect!` are passed to the underlying
+    `get` method. This for example allows to set custom headers for the
+    redirection request to the server.
 
-*   Cookies `:expires` option supports `ActiveSupport::Duration` object.
+        follow_redirect!(params: { foo: :bar })
 
-        cookies[:user_name] = { value: "assain", expires: 1.hour }
-        cookies[:key] = { value: "a yummy cookie", expires: 6.months }
+    *Remo Fritzsche*
 
-    Pull Request: #30121
+*   Introduce a new error page to when the implicit render page is accessed in the browser.
 
-    *Assain Jaleel*
+    Now instead of showing an error page that with exception and backtraces we now show only
+    one informative page.
 
-*   Enforce signed/encrypted cookie expiry server side.
+    *Vinicius Stock*
 
-    Rails can thwart attacks by malicious clients that don't honor a cookie's expiry.
+*   Introduce ActionDispatch::DebugExceptions.register_interceptor
 
-    It does so by stashing the expiry within the written cookie and relying on the
-    signing/encrypting to vouch that it hasn't been tampered with. Then on a
-    server-side read, the expiry is verified and any expired cookie is discarded.
+    Exception aware plugin authors can use the newly introduced
+    `.register_interceptor` method to get the processed exception, instead of
+    monkey patching DebugExceptions.
 
-    Pull Request: #30121
+        ActionDispatch::DebugExceptions.register_interceptor do |request, exception|
+          HypoteticalPlugin.capture_exception(request, exception)
+        end
 
-    *Assain Jaleel*
+    *Genadi Samokovarov*
 
-*   Make `take_failed_screenshot` work within engine.
+*   Output only one Content-Security-Policy nonce header value per request.
 
-    Fixes #30405.
+    Fixes #32597.
 
-    *Yuji Yaginuma*
+    *Andrey Novikov*, *Andrew White*
 
-*   Deprecate `ActionDispatch::TestResponse` response aliases
+*   Move default headers configuration into their own module that can be included in controllers.
 
-    `#success?`, `#missing?` & `#error?` are not supported by the actual
-    `ActionDispatch::Response` object and can produce false-positives. Instead,
-    use the response helpers provided by `Rack::Response`.
+    *Kevin Deisz*
 
-    *Trevor Wistaff*
+*   Add method `dig` to `session`.
 
-*   Protect from forgery by default
+    *claudiob*, *Takumi Shotoku*
 
-    Rather than protecting from forgery in the generated `ApplicationController`,
-    add it to `ActionController::Base` depending on
-    `config.action_controller.default_protect_from_forgery`. This configuration
-    defaults to false to support older versions which have removed it from their
-    `ApplicationController`, but is set to true for Rails 5.2.
+*   Controller level `force_ssl` has been deprecated in favor of
+    `config.force_ssl`.
 
-    *Lisa Ugray*
+    *Derek Prior*
 
-*   Fallback `ActionController::Parameters#to_s` to `Hash#to_s`.
+*   Rails 6 requires Ruby 2.4.1 or newer.
 
-    *Kir Shatrov*
-
-*   `driven_by` now registers poltergeist and capybara-webkit
-
-    If poltergeist or capybara-webkit are set as drivers is set for System Tests,
-    `driven_by` will register the driver and set additional options passed via
-    the `:options` parameter.
-
-    Refer to the respective driver's documentation to see what options can be passed.
-
-    *Mario Chavez*
-
-*   AEAD encrypted cookies and sessions with GCM
-
-    Encrypted cookies now use AES-GCM which couples authentication and
-    encryption in one faster step and produces shorter ciphertexts. Cookies
-    encrypted using AES in CBC HMAC mode will be seamlessly upgraded when
-    this new mode is enabled via the
-    `action_dispatch.use_authenticated_cookie_encryption` configuration value.
-
-    *Michael J Coyne*
-
-*   Change the cache key format for fragments to make it easier to debug key churn. The new format is:
-
-        views/template/action.html.erb:7a1156131a6928cb0026877f8b749ac9/projects/123
-              ^template path           ^template tree digest            ^class   ^id
-
-    *DHH*
-
-*   Add support for recyclable cache keys with fragment caching. This uses the new versioned entries in the
-    `ActiveSupport::Cache` stores and relies on the fact that Active Record has split `#cache_key` and `#cache_version`
-    to support it.
-
-    *DHH*
-
-*   Add `action_controller_api` and `action_controller_base` load hooks to be called in `ActiveSupport.on_load`
-
-    `ActionController::Base` and `ActionController::API` have differing implementations. This means that
-    the one umbrella hook `action_controller` is not able to address certain situations where a method
-    may not exist in a certain implementation.
-
-    This is fixed by adding two new hooks so you can target `ActionController::Base` vs `ActionController::API`
-
-    Fixes #27013.
-
-    *Julian Nadeau*
+    *Jeremy Daer*
 
 
-Please check [5-1-stable](https://github.com/rails/rails/blob/5-1-stable/actionpack/CHANGELOG.md) for previous changes.
+Please check [5-2-stable](https://github.com/rails/rails/blob/5-2-stable/actionpack/CHANGELOG.md) for previous changes.

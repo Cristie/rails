@@ -7,7 +7,7 @@
 #
 # gcs:
 #   service: GCS
-#   keyfile: {
+#   credentials: {
 #     type: "service_account",
 #     project_id: "",
 #     private_key_id: "",
@@ -24,7 +24,6 @@
 #
 # azure:
 #   service: AzureStorage
-#   path: ""
 #   storage_account_name: ""
 #   storage_access_key: ""
 #   container: ""

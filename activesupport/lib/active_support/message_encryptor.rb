@@ -2,9 +2,10 @@
 
 require "openssl"
 require "base64"
-require_relative "core_ext/array/extract_options"
-require_relative "message_verifier"
-require_relative "messages/metadata"
+require "active_support/core_ext/array/extract_options"
+require "active_support/core_ext/module/attribute_accessors"
+require "active_support/message_verifier"
+require "active_support/messages/metadata"
 
 module ActiveSupport
   # MessageEncryptor is a simple way to encrypt values which get stored
@@ -58,8 +59,8 @@ module ActiveSupport
   # === Rotating keys
   #
   # MessageEncryptor also supports rotating out old configurations by falling
-  # back to a stack of encryptors. Call `rotate` to build and add an encryptor
-  # so `decrypt_and_verify` will also try the fallback.
+  # back to a stack of encryptors. Call +rotate+ to build and add an encryptor
+  # so +decrypt_and_verify+ will also try the fallback.
   #
   # By default any rotated encryptors use the values of the primary
   # encryptor unless specified otherwise.
@@ -77,13 +78,13 @@ module ActiveSupport
   # Though if both the secret and the cipher was changed at the same time,
   # the above should be combined into:
   #
-  #   verifier.rotate old_secret, cipher: "aes-256-cbc"
+  #   crypt.rotate old_secret, cipher: "aes-256-cbc"
   class MessageEncryptor
     prepend Messages::Rotator::Encryptor
 
-    class << self
-      attr_accessor :use_authenticated_message_encryption #:nodoc:
+    cattr_accessor :use_authenticated_message_encryption, instance_accessor: false, default: false
 
+    class << self
       def default_cipher #:nodoc:
         if use_authenticated_message_encryption
           "aes-256-gcm"

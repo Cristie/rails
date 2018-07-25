@@ -14,6 +14,7 @@ require "bundler/setup" unless defined?(Bundler)
 require "active_support"
 require "active_support/testing/autorun"
 require "active_support/testing/stream"
+require "active_support/testing/method_call_assertions"
 require "active_support/test_case"
 
 RAILS_FRAMEWORK_ROOT = File.expand_path("../../..", __dir__)
@@ -38,7 +39,12 @@ module TestHelpers
     end
 
     def app_path(*args)
-      tmp_path(*%w[app] + args)
+      path = tmp_path(*%w[app] + args)
+      if block_given?
+        yield path
+      else
+        path
+      end
     end
 
     def framework_path
@@ -82,22 +88,6 @@ module TestHelpers
       assert_match "charset=utf-8", resp[1]["Content-Type"]
       assert extract_body(resp).match(/Yay! You.*re on Rails!/)
     end
-
-    def assert_success(resp)
-      assert_equal 202, resp[0]
-    end
-
-    def assert_missing(resp)
-      assert_equal 404, resp[0]
-    end
-
-    def assert_header(key, value, resp)
-      assert_equal value, resp[1][key.to_s]
-    end
-
-    def assert_body(expected, resp)
-      assert_equal expected, extract_body(resp)
-    end
   end
 
   module Generation
@@ -123,22 +113,57 @@ module TestHelpers
         end
       end
 
-      File.open("#{app_path}/config/database.yml", "w") do |f|
-        f.puts <<-YAML
-        default: &default
-          adapter: sqlite3
-          pool: 5
-          timeout: 5000
-        development:
-          <<: *default
-          database: db/development.sqlite3
-        test:
-          <<: *default
-          database: db/test.sqlite3
-        production:
-          <<: *default
-          database: db/production.sqlite3
-        YAML
+      if options[:multi_db]
+        File.open("#{app_path}/config/database.yml", "w") do |f|
+          f.puts <<-YAML
+          default: &default
+            adapter: sqlite3
+            pool: 5
+            timeout: 5000
+          development:
+            primary:
+              <<: *default
+              database: db/development.sqlite3
+            animals:
+              <<: *default
+              database: db/development_animals.sqlite3
+              migrations_paths: db/animals_migrate
+          test:
+            primary:
+              <<: *default
+              database: db/test.sqlite3
+            animals:
+              <<: *default
+              database: db/test_animals.sqlite3
+              migrations_paths: db/animals_migrate
+          production:
+            primary:
+              <<: *default
+              database: db/production.sqlite3
+            animals:
+              <<: *default
+              database: db/production_animals.sqlite3
+              migrations_paths: db/animals_migrate
+          YAML
+        end
+      else
+        File.open("#{app_path}/config/database.yml", "w") do |f|
+          f.puts <<-YAML
+          default: &default
+            adapter: sqlite3
+            pool: 5
+            timeout: 5000
+          development:
+            <<: *default
+            database: db/development.sqlite3
+          test:
+            <<: *default
+            database: db/test.sqlite3
+          production:
+            <<: *default
+            database: db/production.sqlite3
+          YAML
+        end
       end
 
       add_to_config <<-RUBY
@@ -153,6 +178,7 @@ module TestHelpers
 
     def teardown_app
       ENV["RAILS_ENV"] = @prev_rails_env if @prev_rails_env
+      FileUtils.rm_rf(tmp_path)
     end
 
     # Make a very basic app, without creating the whole directory structure.
@@ -235,7 +261,7 @@ module TestHelpers
 
     # Invoke a bin/rails command inside the app
     #
-    # allow_failures:: true to return normally if the command exits with
+    # allow_failure:: true to return normally if the command exits with
     #   a non-zero status. By default, this method will raise.
     # stderr:: true to pass STDERR output straight to the "real" STDERR.
     #   By default, the STDERR and STDOUT of the process will be
@@ -357,10 +383,12 @@ module TestHelpers
     end
 
     def app_file(path, contents, mode = "w")
-      FileUtils.mkdir_p File.dirname("#{app_path}/#{path}")
-      File.open("#{app_path}/#{path}", mode) do |f|
+      file_name = "#{app_path}/#{path}"
+      FileUtils.mkdir_p File.dirname(file_name)
+      File.open(file_name, mode) do |f|
         f.puts contents
       end
+      file_name
     end
 
     def remove_file(path)
@@ -380,6 +408,21 @@ module TestHelpers
 
       $:.reject! { |path| path =~ %r'/(#{to_remove.join('|')})/' }
     end
+
+    def use_postgresql
+      File.open("#{app_path}/config/database.yml", "w") do |f|
+        f.puts <<-YAML
+        default: &default
+          adapter: postgresql
+          pool: 5
+          database: railties_test
+        development:
+          <<: *default
+        test:
+          <<: *default
+        YAML
+      end
+    end
   end
 end
 
@@ -388,6 +431,11 @@ class ActiveSupport::TestCase
   include TestHelpers::Rack
   include TestHelpers::Generation
   include ActiveSupport::Testing::Stream
+  include ActiveSupport::Testing::MethodCallAssertions
+
+  def frozen_error_class
+    Object.const_defined?(:FrozenError) ? FrozenError : RuntimeError
+  end
 end
 
 # Create a scope and build a fixture rails app
